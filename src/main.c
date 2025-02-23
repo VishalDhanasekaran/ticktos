@@ -4,13 +4,17 @@
 #include "queue.c"
 #include "../include/lock.h"
 #include <time.h>
+
+void kitty() {printf("\nKitty terminal opened");}
+void firefox() {printf("\nfirefox opened");}
+void systemd() {printf("\nsystemd initiated");}
 int main() 
 {
     srand(time(NULL));
     initializeQueue(&readyQ);
-    createTask("kitty", 10, 2);
-    createTask("firefox", 30, 3);
-    createTask("systemd", 200, 5);
+    createTask("kitty", 10, kitty);
+    createTask("firefox", 30, firefox);
+    createTask("systemd", 200, systemd);
 
     OS_Run();
     return 0;
