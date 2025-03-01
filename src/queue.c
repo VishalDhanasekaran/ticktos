@@ -1,64 +1,59 @@
-#include "../include/queue.h"
+// === src/queue.c ===
 #include <stdbool.h>
-//#include "pcb.h"
+#include "../include/queue.h"
 
-void initializeQueue(Queue* q) 
+void initializeQueue(Queue *q) 
 {
-    q->head = -1;
-    q->tail = -1;
+    q->size = 0;
 }
 
-// Check if the queue is full
-bool isFull(Queue* q) 
+bool isFull(Queue *q) 
 {
-    return q->tail == MAXQSIZE - 1;
+    return q->size == MAXQSIZE;
 }
 
-// Check if the queue is empty
-bool isEmpty(Queue* q) 
+bool isEmpty(Queue *q) 
 {
-    return q->tail == -1;
+    return q->size == 0;
 }
 
-// Enqueue a new task
-void enqueue(Queue* q, PCB* newTask) 
+void enqueue(Queue *q, PCB *newTask) 
 {
     if (isFull(q)) 
     {
         printf("Queue is full\n");
         return;
     }
-    if (q->head == -1) q->head = 0;
-    q->queue[++(q->tail)] = newTask;
+    int i = q->size - 1;
+    while (i >= 0 && q->queue[i]->priority < newTask->priority) 
+    {
+        q->queue[i + 1] = q->queue[i];
+        i--;
+    }
+    q->queue[i + 1] = newTask;
+    q->size++;
 }
 
-// Dequeue a task
-void dequeue(Queue* q) 
+void dequeue(Queue *q) 
 {
     if (isEmpty(q)) 
     {
         printf("Queue is empty\n");
         return;
     }
-    for (int i = 0; i < q->tail; i++) 
+    for (int i = 0; i < q->size - 1; i++) 
     {
         q->queue[i] = q->queue[i + 1];
     }
-    (q->tail)--;
-    if (q->tail == -1) q->head = -1;
+    q->size--;
 }
 
-// Get the front task in the queue
-PCB* front(Queue* q) 
+PCB *front(Queue *q) 
 {
     if (isEmpty(q)) 
     {
         printf("Queue is empty\n");
         return NULL;
     }
-    return q->queue[q->head];
+    return q->queue[0];
 }
-
-
-
-
