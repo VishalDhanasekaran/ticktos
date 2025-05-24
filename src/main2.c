@@ -1,80 +1,43 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include "pcb.c"
 #include "queue.c"
 #include "../include/lock.h"
 #include <time.h>
 
-void bubbleSortTask() 
+void kitty() 
 {
-    int arr[] = {5, 3, 8, 1, 2};
-    int n = 5;
-    printf("\nTask %s running: Sorting array", currentTask->pname);
-    
-    for (int i = 0; i < n - 1; i++) 
+    for (int i = 0; i < 5; i++) 
     {
-        for (int j = 0; j < n - i - 1; j++) 
-        {
-            if (arr[j] > arr[j + 1]) 
-            {
-                int temp = arr[j];
-                arr[j] = arr[j + 1];
-                arr[j + 1] = temp;
-            }
-        }
-    }
-    printf("\nTask %s completed. Sorted Array: ", currentTask->pname);
-    for (int i = 0; i < n; i++) 
-    {
-        printf("%d ", arr[i]);
+        printf("\nKitty terminal iteration %d", i);
+        usleep(100000);
     }
 }
 
-void fibonacciTask() 
+void firefox() 
 {
-    int n = 10;
-    int t1 = 0, t2 = 1;
-    printf("\nTask %s running: Fibonacci sequence", currentTask->pname);
-    
-    printf("\nFibonacci Sequence: %d %d ", t1, t2);
-    for (int i = 3; i <= n; i++) 
+    for (int i = 0; i < 5; i++) 
     {
-        int nextTerm = t1 + t2;
-        printf("%d ", nextTerm);
-        t1 = t2;
-        t2 = nextTerm;
+        printf("\nFirefox iteration %d", i);
+        usleep(200000);
     }
-    printf("\nTask %s completed.", currentTask->pname);
 }
 
-void matrixMultiplicationTask() 
+void systemd() 
 {
-    int A[2][2] = {{1, 2}, {3, 4}};
-    int B[2][2] = {{5, 6}, {7, 8}};
-    int C[2][2] = {0};
-    
-    printf("\nTask %s running: Matrix Multiplication", currentTask->pname);
-    
-    for (int i = 0; i < 2; i++) 
+    for (int i = 0; i < 5; i++) 
     {
-        for (int j = 0; j < 2; j++) 
-        {
-            C[i][j] = 0;
-            for (int k = 0; k < 2; k++) 
-            {
-                C[i][j] += A[i][k] * B[k][j];
-            }
-        }
+        printf("\nSystemd iteration %d", i);
+        usleep(300000);
     }
-    
-    printf("\nTask %s completed. Result Matrix: ", currentTask->pname);
-    for (int i = 0; i < 2; i++) 
+}
+
+void emergency() 
+{
+    printf("\n!!! EMERGENCY TASK PREEMPTING !!!");
+    for (int i = 0; i < 3; i++) 
     {
-        printf("\n");
-        for (int j = 0; j < 2; j++) 
-        {
-            printf("%d ", C[i][j]);
-        }
+        printf("\nEmergency handling iteration %d", i);
+        usleep(100000);
     }
 }
 
@@ -82,12 +45,38 @@ int main()
 {
     srand(time(NULL));
     initializeQueue(&readyQ);
-
-    createTask("SortingTask", 10, bubbleSortTask);
-    createTask("FibonacciTask", 20, fibonacciTask);
-    createTask("MatrixMultTask", 30, matrixMultiplicationTask);
-
+    initializeQueue(&blockedQ);
+    
+    // Create the initial context for the scheduler
+    getcontext(&scheduler_context);
+    scheduler_context = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, 
+                          MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    scheduler_context.uc_stack.ss_sp = scheduler_context;
+    scheduler_context.uc_stack.ss_size = STACK_SIZE;
+    scheduler_context.uc_link = NULL;
+    makecontext(&scheduler_context, (void (*)(void))OS_Schedule, 0);
+    
+    // Creating tasks with different priorities
+    createTask("systemd", 3, systemd);  // Highest priority
+    createTask("kitty", 2, kitty);      // Medium priority
+    createTask("firefox", 1, firefox);  // Lowest priority
+    
+    // Additional task to demonstrate preemption
+    printf("\nStarting OS...\n");
+    sleep(1);
+    printf("\nAdding a high priority task while others are running...\n");
+    
     OS_Run();
+    
+    // After some time, add a high priority task to demonstrate preemption
+    sleep(2);
+    createTask("emergency", 5, emergency);  // Very high priority task
+    
+    while(activeTaskCount > 0) {
+        sleep(1);  // Just wait for tasks to complete
+    }
+    
+    printf("\nAll tasks completed\n");
     return 0;
 }
 
