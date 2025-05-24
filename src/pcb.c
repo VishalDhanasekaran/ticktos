@@ -1,4 +1,7 @@
-// === src/pcb.c ===
+/*-----------------------------------------------------------------------------
+ |                             FOSS-CIT                                       |
+ *-----------------------------------------------------------------------------
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -37,6 +40,26 @@ void timerHandler(int signum)
     OS_Schedule();
 }
 
+void checkPreemption() 
+{
+    if (currentTask == NULL || isEmpty(&readyQ)) 
+    {
+        return;  // No preemption needed
+    }
+    
+    PCB *highestPriorityTask = front(&readyQ);
+    
+    if (highestPriorityTask->priority > currentTask->priority) 
+    {
+        printf("\n[Preemption] Task %s (priority %d) preempting %s (priority %d)\n", 
+               highestPriorityTask->pname, highestPriorityTask->priority,
+               currentTask->pname, currentTask->priority);
+        
+        // Save current task's context and switch to scheduler
+        // The scheduler will then pick the highest priority task
+        swapcontext(&currentTask->context, &scheduler_context);
+    }
+}
 
 void createTask(char *name, uint32_t priority, void (*taskFunc)()) 
 {
@@ -64,6 +87,8 @@ void createTask(char *name, uint32_t priority, void (*taskFunc)())
     makecontext(&newTask->context, (void (*)(void))taskWrapper, 1, taskFunc);
 
     enqueue(&readyQ, newTask);
+
+    checkPreemption();
     unlock();
 }
 
@@ -77,6 +102,16 @@ void startTimer()
     setitimer(ITIMER_REAL, &timer, NULL);
 
 }
+
+void haltTimer()
+{
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, NULL);
+}
+
 void haltTask(PCB *task) 
 {
     lock();
@@ -86,6 +121,7 @@ void haltTask(PCB *task)
     activeTaskCount--;
     unlock();
 }
+
 void OS_Schedule() 
 {
     lock();
@@ -121,37 +157,16 @@ void OS_Run()
     startTimer();
     OS_Schedule();
 }
+
 void sampleTask() 
 {
     if(currentTask == NULL)
         return;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++) 
+    {
         printf("Task %s running iteration %d\n", currentTask->pname, i + 1);
         usleep(100000);
     }
 }
-/*void OS_Run() 
-{
-    while (!isEmpty(&readyQ)) 
-    {
-        //lock();
-        PCB *currentTask = front(&readyQ);
-        dequeue(&readyQ);
-        currentTask->state = RUNNING;
 
-        printf("\nRunning Process:\n");
-        printf("Name: %s, PID: %u, Priority: %u\n", currentTask->pname, currentTask->pid, currentTask->priority);
-        //unlock();
-
-        
-        sleep(currentTask->burst_time); // Simulate task execution
-        
-        //lock();
-        printf("\n Terminating process...");
-        currentTask->state = TERMINATED;
-        haltTask(currentTask);
-        printf("\nTermination success!!");
-        //unlock();
-    }
-}*/
