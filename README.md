@@ -1,3 +1,4 @@
 
 A basic RTOS ( Real Time Operating System ) simulation 
-> under development 
+> [!NOTE]  
+> This project is under development not open for contributors for now.
