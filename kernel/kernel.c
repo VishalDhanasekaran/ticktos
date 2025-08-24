@@ -1,59 +1,75 @@
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include "gdt.h"
+#include "idt.h"
+#include "irq.h"
 #include "kernel.h"
+#include "manager.h"
+#include "multiboot.h"
+#include "pic.h"
+#include "pit.h"
+#include "serial.h"
+#include "vga_display.h"
+#if defined(__linux__)
+#error                                                                         \
+    "You are not using a cross-compiler, you will most certainly run into trouble"
+#endif
 
-#define MAXTHREADS 3
-#define STACKSIZE  100
+#if !defined(__i386__)
+#error "This tutorial needs to be compiled with a ix86-elf compiler"
+#endif
 
-#define BUS_FREQ 16000000
-unit32_t MILLIS_PRESCALAR
-
-typedef struct 
+/* Main kernel entry point */
+void kernel_main(uint32_t magic, uint32_t addr) 
 {
-    int32_t *stackPtr;
-    struct TCB *nextPtr;
-} TCB;
 
-TCB tasks[MAXTHREADS];
-TCB *currentPtr;
+  if (magic != MAGIC) 
+  {
+    while (1)
+      asm volatile("hlt");
+  }
 
-int32_t stack[MAXTHREADS][STACKSIZE];
+  multiboot_info_t *mbi = (multiboot_info_t *)addr;
 
-void osStackInit(int i)
-{
-    tasks[i].stackPtr = &stack[i][STACKSIZE - 16];
-    TCB_STACK[i][STACKSIZE - 1] = 0x01000000;
-}
+  serial_init();
+  serial_writestring("Serial initialized. Booting...\n");
 
-uint8_t osAddThreads(void (*task0)(void), void (*task1)(void), void (*task2)(void))
-{
-    tasks[0].nextPtr = &tasks[1];
-    tasks[1].nextPtr = &tasks[2];
-    tasks[2].nextPtr = &tasks[0];
-    
-    osInit(0);
-    stack[0][STACKSIZE - 2] = (int32_t) (task0);
+  serial_writestring("kernel_start= ");
+  serial_writehex(KERNEL_START);
 
-    osInit(1);
-    stack[1][STACKSIZE - 2] = (int32_t) (task1);
+  serial_writestring("\nkernel_end= ");
+  serial_writehex(KERNEL_END);
 
-    osInit(2);
-    stack[2][STACKSIZE - 2] = (int32_t) (task2);
- 
-    return 1;
-}
+  int memory_status = initialize_memeory_manager(mbi);
+  if (memory_status < 0)
+    while (1)
+      asm volatile("hlt");
 
-void osInit(void)
-{
-   MILLIS_PRESCALAR = BUS_FREQ / 1000;
-}
+  serial_writestring("\nGDT init...\n");
+  gdt_initialize();
 
-void osLaunch(uint32_t quantum)
-{
-    /*SysTick->CTRL = 0;
-    SysTick->VAL  = 0;
-    SYSPRI3       = (SYSPRI3&0x00FFFFFF) | (0xE0000000);
-    SysTick->LOAD = (quantum * MILLIS_PRESCALER);
-    SysTick->CTRL = 0x00000007; */
-    sleep(quantum);
+  serial_writestring("PIC remap...\n");
+  remap_pic(OFFSET1, OFFSET2);
 
-    //osScheduler();
+  serial_writestring("IDT setup...\n");
+  setup_idt();
+
+  serial_writestring("Install timer & keyboard drivers..\n");
+  install_handlers();
+
+  serial_writestring("PIT init...\n");
+  init_timer(FREQUENCY);
+
+  serial_writestring("IDT init...\n");
+  initialize_idt();
+
+  serial_writestring("Boot complete.\n");
+
+  terminal_initialize();
+  terminal_writestring("\n Hello, Welcome to FOSS-CIT's Kernel!");
+
+  while (1) {
+    asm volatile("hlt");
+  }
 }
